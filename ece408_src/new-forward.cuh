@@ -52,29 +52,32 @@ __global__ void forward_kernel(float *y, const float *x, const float *k, const i
     float * k_shared = &shmem[x_tile_width*x_tile_width];
 
     float acc = 0;
-    
-    for (int c = 0;c<C;c++){
-        //load kernel into shared memory
-        if ((h0<K) && (w0<K)){
-            k_shared[h0*K+w0] = k4d(m,c,h0,w0);
-        }
-        __syncthreads();
-        //load input x into shared memory x_shared
-        for(int i=h;i<h_base+x_tile_width;i+=TILE_WIDTH){
-            for (int j = w;j<w_base+x_tile_width;j+=TILE_WIDTH){
-                x_shared[(i-h_base)*x_tile_width+(j-w_base)] = x4d(b,c,i,j);
-            }
-        }
-        __syncthreads();
-        //convolution
-        for (int p=0;p<K;p++){
-            for (int q=0;q<K;q++){
-                acc += x_shared[(h+p)*x_tile_width+(w+q)]*k_shared[p*K+q];
-            }
-        }
-        __syncthreads();
-        y4d(b,c,h,w) = acc;
 
+    if (b<B & m<M & h<H_out & w<W_out){
+        for (int c = 0;c<C;c++){
+            //load kernel into shared memory
+            if ((h0<K) && (w0<K)){
+                k_shared[h0*K+w0] = k4d(m,c,h0,w0);
+                // k_shared[h0][w0] = k4d(m,c,h0,w0);
+            }
+            __syncthreads();
+            //load input x into shared memory x_shared
+            for(int i=h;i<h_base+x_tile_width;i+=TILE_WIDTH){
+                for (int j = w;j<w_base+x_tile_width;j+=TILE_WIDTH){
+                    x_shared[(i-h_base)*x_tile_width+(j-w_base)] = x4d(b,c,i,j);
+                    // x_shared[i-h_base)][j-w_base] = x4d(b,c,i,j);
+                }
+            }
+            __syncthreads();
+            //convolution
+            for (int p=0;p<K;p++){
+                for (int q=0;q<K;q++){
+                    acc += x_shared[(h0+p)*x_tile_width+(w0+q)] * k_shared[p*K+q];
+                }
+            }
+            __syncthreads();
+        }
+        y4d(b,m,h,w) = acc;
     }
 
 
@@ -114,7 +117,7 @@ void forward<gpu, float>(mshadow::Tensor<gpu, 4, float> &y, const mshadow::Tenso
     //CHECK_EQ(0, 1) << "Missing an ECE408 GPU implementation!";
 
     // You'll probably need to launch kernels against the right stream to keep MXNet happy
-    cudaStream_t s = y.stream_->stream_;
+    // cudaStream_t s = y.stream_->stream_;
 
     // Extract the tensor dimensions into B,M,C,H,W,K
     // ...
@@ -163,7 +166,7 @@ void forward<gpu, float>(mshadow::Tensor<gpu, 4, float> &y, const mshadow::Tenso
     // dim3 blockDim(0);
 
     // Call the kernel
-    forward_kernel<<<gridDim, blockDim, shmemsize, s>>>(devicey,devicex,devicek, B,M,C,H,W,K,W_grid);
+    forward_kernel<<<gridDim, blockDim, shmemsize>>>(devicey,devicex,devicek, B,M,C,H,W,K,W_grid);
 
     // Use MSHADOW_CUDA_CALL to check for CUDA runtime errors.
     MSHADOW_CUDA_CALL(cudaDeviceSynchronize());
