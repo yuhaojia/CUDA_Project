@@ -4,6 +4,9 @@ import mxnet as mx
 import logging
 from reader import load_mnist
 
+from time import *
+t0=time()
+
 # Log to stdout for MXNet
 logging.getLogger().setLevel(logging.DEBUG)  # logging to stdout
 
@@ -35,4 +38,5 @@ print "done"
 
 acc = mx.metric.Accuracy()
 lenet_model.score(test_iter, acc)
+print "elapsed time:" ,(time()-t0)
 print(acc)
