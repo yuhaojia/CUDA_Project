@@ -63,7 +63,9 @@ __global__ void forward_kernel(float *A, float *B, float *C, int numARows, int n
         int b = blockIdx.z;
         __shared__ float Ads[Y_BLK*TILE_WIDTH][TILE_WIDTH];
         __shared__ float Bds[TILE_WIDTH][X_BLK*TILE_WIDTH];
-
+        // float Cvalue0 = 0; float Cvalue1 = 0;
+        // float Cvalue2 = 0; float Cvalue3 = 0;
+        // float Cvalue4 = 0; float Cvalue5 = 0;
         float Cvalue[Y_BLK][X_BLK] = {0};
         for (int ph=0;ph<ceil(numAColumns/(float)TILE_WIDTH);++ph){
 
@@ -72,12 +74,28 @@ __global__ void forward_kernel(float *A, float *B, float *C, int numARows, int n
                 Ads[ty+blk*TILE_WIDTH][tx] = A[(Row+blk*TILE_WIDTH)*numAColumns+ph*TILE_WIDTH+tx];
                 else Ads[ty+blk*TILE_WIDTH][tx]=0;
             }
-
+        // if ((Row<numARows)&& ((ph*TILE_WIDTH+tx)<numAColumns))
+        // Ads[ty][tx] = A[Row*numAColumns+ph*TILE_WIDTH+tx];
+        // else Ads[ty][tx]=0;
+        // if ((Row+TILE_WIDTH<numARows)&& ((ph*TILE_WIDTH+tx)<numAColumns))
+        // Ads[ty+TILE_WIDTH][tx] = A[(Row+TILE_WIDTH)*numAColumns+ph*TILE_WIDTH+tx];
+        // else Ads[ty+TILE_WIDTH][tx]=0;
             for (int blk =0; blk < X_BLK;blk++){
                 if ((ph*TILE_WIDTH+ty)<numBRows && ((Col+blk*TILE_WIDTH)<numBColumns))
                 Bds[ty][tx+blk*TILE_WIDTH] = B[b*numBColumns*numBRows +(ph*TILE_WIDTH+ty)*numBColumns+Col+blk*TILE_WIDTH];
                 else Bds[ty][tx+blk*TILE_WIDTH]=0;
             }
+
+        // if ((ph*TILE_WIDTH+ty)<numBRows && (Col<numBColumns))
+        // Bds[ty][tx] = B[b*numBColumns*numBRows +(ph*TILE_WIDTH+ty)*numBColumns+Col];
+        // else Bds[ty][tx]=0;
+        // if ((ph*TILE_WIDTH+ty)<numBRows && ((Col+TILE_WIDTH)<numBColumns))
+        // Bds[ty][tx+TILE_WIDTH] = B[b*numBColumns*numBRows +(ph*TILE_WIDTH+ty)*numBColumns+Col+TILE_WIDTH];
+        // else Bds[ty][tx+TILE_WIDTH]=0;
+
+        // if ((ph*TILE_WIDTH+ty)<numBRows && ((Col+2*TILE_WIDTH)<numBColumns))
+        // Bds[ty][tx+2*TILE_WIDTH] = B[b*numBColumns*numBRows +(ph*TILE_WIDTH+ty)*numBColumns+Col+2*TILE_WIDTH];
+        // else Bds[ty][tx+2*TILE_WIDTH]=0;
         
         __syncthreads();
             for(int blkx = 0; blkx <Y_BLK; blkx++){
@@ -86,6 +104,21 @@ __global__ void forward_kernel(float *A, float *B, float *C, int numARows, int n
                     Cvalue[blkx][blky] += Ads[ty+blkx*TILE_WIDTH][j]*Bds[j][tx+blky*TILE_WIDTH];
                 }
             }
+
+
+        // for(int j=0;j<TILE_WIDTH;++j)
+        // Cvalue0 += Ads[ty][j]*Bds[j][tx];
+        // for(int j=0;j<TILE_WIDTH;++j)
+        // Cvalue1 += Ads[ty][j]*Bds[j][tx+TILE_WIDTH];
+        // for(int j=0;j<TILE_WIDTH;++j)
+        // Cvalue2 += Ads[ty+TILE_WIDTH][j]*Bds[j][tx];
+        // for(int j=0;j<TILE_WIDTH;++j)
+        // Cvalue3 += Ads[ty+TILE_WIDTH][j]*Bds[j][tx+TILE_WIDTH];
+
+        // for(int j=0;j<TILE_WIDTH;++j)
+        // Cvalue4 += Ads[ty][j]*Bds[j][tx+2*TILE_WIDTH];
+        // for(int j=0;j<TILE_WIDTH;++j)
+        // Cvalue5 += Ads[ty+TILE_WIDTH][j]*Bds[j][tx+2*TILE_WIDTH];
 
         // Cvalue += K_const[Row*numAColumns+ph*TILE_WIDTH+j]*Bds[j][tx];
         __syncthreads();
@@ -98,6 +131,22 @@ __global__ void forward_kernel(float *A, float *B, float *C, int numARows, int n
             }
         }
 
+
+
+        // if(Row<numCRows && Col<numCColumns)
+        // C[b*numCColumns*numCRows +Row*numCColumns+Col]=Cvalue0;
+        // if(Row<numCRows && (Col+TILE_WIDTH)<numCColumns)
+        // C[b*numCColumns*numCRows +Row*numCColumns+Col+TILE_WIDTH]=Cvalue1;
+
+        // if(Row+TILE_WIDTH<numCRows && Col<numCColumns)
+        // C[b*numCColumns*numCRows +(Row+TILE_WIDTH)*numCColumns+Col]=Cvalue2;
+        // if(Row+TILE_WIDTH<numCRows && (Col+TILE_WIDTH)<numCColumns)
+        // C[b*numCColumns*numCRows +(Row+TILE_WIDTH)*numCColumns+Col+TILE_WIDTH]=Cvalue3;
+
+        // if(Row<numCRows && (Col+2*TILE_WIDTH)<numCColumns)
+        // C[b*numCColumns*numCRows +Row*numCColumns+Col+2*TILE_WIDTH]=Cvalue4;
+        // if(Row+TILE_WIDTH<numCRows && Col+2*TILE_WIDTH<numCColumns)
+        // C[b*numCColumns*numCRows +(Row+TILE_WIDTH)*numCColumns+Col+2*TILE_WIDTH]=Cvalue5;
     
     }
 

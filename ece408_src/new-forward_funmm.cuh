@@ -12,95 +12,36 @@ namespace op
 // #define TILE_WIDTH 25
 #define TILE_WIDTH 25
 #define MAX_NUM_THREADS 1024
-#define X_BLK 3
-#define Y_BLK 2
 // __constant__ float K_const [50*1*25];
 
-// __global__ void forward_kernel(float *A, float *B, float *C, int numARows, int numAColumns, int numBRows, int numBColumns, int numCRows, int numCColumns) {
-// // __global__ void forward_kernel(float *B, float *C, int numARows, int numAColumns, int numBRows, int numBColumns, int numCRows, int numCColumns) {
-        
-//     int bx = blockIdx.x; int by = blockIdx.y;
-//     int tx = threadIdx.x; int ty = threadIdx.y;
-//     int Row = by*TILE_WIDTH+ty;
-//     int Col = bx*TILE_WIDTH+tx;
-//     int b = blockIdx.z;
-//     __shared__ float Ads[TILE_WIDTH][TILE_WIDTH];
-//     __shared__ float Bds[TILE_WIDTH][2*TILE_WIDTH];
-//     float Cvalue[2] = {0,0};
-//     for (int ph=0;ph<ceil(numAColumns/(float)TILE_WIDTH);++ph){
-//     if ((Row<numARows)&& ((ph*TILE_WIDTH+tx)<numAColumns))
-//     Ads[ty][tx] = A[Row*numAColumns+ph*TILE_WIDTH+tx];
-//     else Ads[ty][tx]=0;
-//     for (int phb=0;phb<2;++phb){
-//         if ((ph*TILE_WIDTH+ty)<numBRows && (phb*TILE_WIDTH + Col<numBColumns))
-//             Bds[ty][tx+phb*TILE_WIDTH] = B[b*numBColumns*numBRows +(ph*TILE_WIDTH+ty)*numBColumns+Col+phb*TILE_WIDTH];
-//         else Bds[ty][tx+phb*TILE_WIDTH]=0;
-//     }
-//     __syncthreads();
-//     for (int phb = 0; phb<2;phb++ ){
-//         for(int j=0;j<TILE_WIDTH;++j)
-//             Cvalue[phb] += Ads[ty][j]*Bds[j][tx+phb*TILE_WIDTH];
-//     // Cvalue += K_const[Row*numAColumns+ph*TILE_WIDTH+j]*Bds[j][tx];
-//         }
-//     __syncthreads();
-//     }
-//     for (int phb = 0; phb<2;phb++ ){
-//         if(Row<numCRows && Col+phb*TILE_WIDTH<numCColumns)
-//             C[b*numCColumns*numCRows +Row*numCColumns+Col+phb*TILE_WIDTH]=Cvalue[phb];
-//     }
-    
-
-// }
-
-
 __global__ void forward_kernel(float *A, float *B, float *C, int numARows, int numAColumns, int numBRows, int numBColumns, int numCRows, int numCColumns) {
-    // __global__ void forward_kernel(float *B, float *C, int numARows, int numAColumns, int numBRows, int numBColumns, int numCRows, int numCColumns) {
-            
-        int bx = blockIdx.x; int by = blockIdx.y;
-        int tx = threadIdx.x; int ty = threadIdx.y;
-        int Row = by*Y_BLK*TILE_WIDTH+ty;
-        int Col = bx*X_BLK*TILE_WIDTH+tx;
-        int b = blockIdx.z;
-        __shared__ float Ads[Y_BLK*TILE_WIDTH][TILE_WIDTH];
-        __shared__ float Bds[TILE_WIDTH][X_BLK*TILE_WIDTH];
-
-        float Cvalue[Y_BLK][X_BLK] = {0};
-        for (int ph=0;ph<ceil(numAColumns/(float)TILE_WIDTH);++ph){
-
-            for (int blk = 0; blk<Y_BLK; blk++){
-                if (((Row+blk*TILE_WIDTH)<numARows)&& ((ph*TILE_WIDTH+tx)<numAColumns))
-                Ads[ty+blk*TILE_WIDTH][tx] = A[(Row+blk*TILE_WIDTH)*numAColumns+ph*TILE_WIDTH+tx];
-                else Ads[ty+blk*TILE_WIDTH][tx]=0;
-            }
-
-            for (int blk =0; blk < X_BLK;blk++){
-                if ((ph*TILE_WIDTH+ty)<numBRows && ((Col+blk*TILE_WIDTH)<numBColumns))
-                Bds[ty][tx+blk*TILE_WIDTH] = B[b*numBColumns*numBRows +(ph*TILE_WIDTH+ty)*numBColumns+Col+blk*TILE_WIDTH];
-                else Bds[ty][tx+blk*TILE_WIDTH]=0;
-            }
+// __global__ void forward_kernel(float *B, float *C, int numARows, int numAColumns, int numBRows, int numBColumns, int numCRows, int numCColumns) {
         
-        __syncthreads();
-            for(int blkx = 0; blkx <Y_BLK; blkx++){
-                for (int blky = 0; blky<X_BLK;blky++){
-                    for(int j=0;j<TILE_WIDTH;++j)
-                    Cvalue[blkx][blky] += Ads[ty+blkx*TILE_WIDTH][j]*Bds[j][tx+blky*TILE_WIDTH];
-                }
-            }
-
-        // Cvalue += K_const[Row*numAColumns+ph*TILE_WIDTH+j]*Bds[j][tx];
-        __syncthreads();
-        }
-
-        for(int blkx = 0; blkx <Y_BLK; blkx++){
-            for (int blky = 0; blky<X_BLK;blky++){
-                if((Row+blkx*TILE_WIDTH)<numCRows && (Col+blky*TILE_WIDTH)<numCColumns)
-                C[b*numCColumns*numCRows +(Row+blkx*TILE_WIDTH)*numCColumns+Col+blky*TILE_WIDTH]=Cvalue[blkx][blky] ;
-            }
-        }
-
-    
+    int bx = blockIdx.x; int by = blockIdx.y;
+    int tx = threadIdx.x; int ty = threadIdx.y;
+    int Row = by*TILE_WIDTH+ty;
+    int Col = bx*TILE_WIDTH+tx;
+    int b = blockIdx.z;
+    __shared__ float Ads[TILE_WIDTH][TILE_WIDTH];
+    __shared__ float Bds[TILE_WIDTH][TILE_WIDTH];
+    float Cvalue = 0;
+    for (int ph=0;ph<ceil(numAColumns/(float)TILE_WIDTH);++ph){
+    if ((Row<numARows)&& ((ph*TILE_WIDTH+tx)<numAColumns))
+    Ads[ty][tx] = A[Row*numAColumns+ph*TILE_WIDTH+tx];
+    else Ads[ty][tx]=0;
+    if ((ph*TILE_WIDTH+ty)<numBRows && (Col<numBColumns))
+    Bds[ty][tx] = B[b*numBColumns*numBRows +(ph*TILE_WIDTH+ty)*numBColumns+Col];
+    else Bds[ty][tx]=0;
+    __syncthreads();
+    for(int j=0;j<TILE_WIDTH;++j)
+    Cvalue += Ads[ty][j]*Bds[j][tx];
+    // Cvalue += K_const[Row*numAColumns+ph*TILE_WIDTH+j]*Bds[j][tx];
+    __syncthreads();
     }
+    if(Row<numCRows && Col<numCColumns)
+    C[b*numCColumns*numCRows +Row*numCColumns+Col]=Cvalue;
 
+}
 
 __global__ void unroll_kernel(int C, int H, int W, int K, float *x, float *x_unroll){
     #define x4d(i3,i2,i1,i0) x[(i3) * (C * H * W) + (i2)*(H * W) + (i1)*(W) + i0]
@@ -192,7 +133,7 @@ void forward<gpu, float>(mshadow::Tensor<gpu, 4, float> &y, const mshadow::Tenso
 
     // printf ("unrollkernelfinished\n");
 
-    dim3 gridDim(ceil(H_out*W_out/(X_BLK*TILE_WIDTH*1.0)),ceil(M/(Y_BLK * TILE_WIDTH*1.0)),B);
+    dim3 gridDim(ceil(H_out*W_out/(TILE_WIDTH*1.0)),ceil(M/(TILE_WIDTH*1.0)),B);
     dim3 blockDim(TILE_WIDTH,TILE_WIDTH,1);
     forward_kernel<<<gridDim,blockDim>>>(devicek,devicexUnroll,devicey,M,x_unroll_Row,x_unroll_Row,x_unroll_Col,M,x_unroll_Col);
     // forward_kernel<<<gridDim,blockDim>>>(devicexUnroll,devicey,M,x_unroll_Row,x_unroll_Row,x_unroll_Col,M,x_unroll_Col);
